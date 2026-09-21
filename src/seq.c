@@ -4,7 +4,7 @@
 #include <time.h>
 #include "ga_model.h"
 
-// Target function from Project2025.pdf
+// Target function 
 double true_function(double u1, double u2) {
     return sin(u1 + u2) * sin(u2 * u2);
 }
@@ -21,7 +21,9 @@ int compare_fitness(const void* a, const void* b) {
 }
 
 int main(void) {
-    srand((unsigned int)time(NULL));
+    // Initialize seed for thread-safe random functions
+    unsigned int main_seed = (unsigned int)time(NULL);
+    srand(main_seed); // Fallback for crossover which still uses standard rand()
 
     // GA Parameters
     double crossover_rate = 0.8;
@@ -41,11 +43,11 @@ int main(void) {
     // Initialize Population
     for (int j = 0; j < pop_size; j++) {
         for (int i = 0; i < M; i++) {
-            population[j].gaussians[i].w = 2.0 * rand_double(0.0, 1.0) - 1.0;
-            population[j].gaussians[i].c[0] = rand_double(U1_MIN, U1_MAX);
-            population[j].gaussians[i].c[1] = rand_double(U2_MIN, U2_MAX);
-            population[j].gaussians[i].sigma[0] = 0.1 + 0.9 * rand_double(0.0, 1.0);
-            population[j].gaussians[i].sigma[1] = 0.1 + 0.9 * rand_double(0.0, 1.0);
+            population[j].gaussians[i].w = 2.0 * rand_double(0.0, 1.0, &main_seed) - 1.0;
+            population[j].gaussians[i].c[0] = rand_double(U1_MIN, U1_MAX, &main_seed);
+            population[j].gaussians[i].c[1] = rand_double(U2_MIN, U2_MAX, &main_seed);
+            population[j].gaussians[i].sigma[0] = 0.1 + 0.9 * rand_double(0.0, 1.0, &main_seed);
+            population[j].gaussians[i].sigma[1] = 0.1 + 0.9 * rand_double(0.0, 1.0, &main_seed);
         }
     }
 
@@ -56,7 +58,7 @@ int main(void) {
     // Evolution Loop
     for (int gen = 1; gen <= gens; gen++) {
         for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
-            mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, train_set_points, M);
+            mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, train_set_points, M, &main_seed);
             sort_arr[pop_idx].index = pop_idx;
             sort_arr[pop_idx].fitness = mse_pop[pop_idx];
         }
@@ -75,17 +77,14 @@ int main(void) {
         // Crossover and Mutation
         int offspring_count = elite_size;
         while (offspring_count < pop_size) {
-            int p1_idx = sort_arr[rand() % pop_size].index; 
-            int p2_idx = sort_arr[rand() % pop_size].index;
-            
-            p1_idx = roulette_wheel_selection(mse_pop, pop_size);
-            p2_idx = roulette_wheel_selection(mse_pop, pop_size);
+            int p1_idx = roulette_wheel_selection(mse_pop, pop_size, &main_seed);
+            int p2_idx = roulette_wheel_selection(mse_pop, pop_size, &main_seed);
 
             Model child1, child2;
             crossover(&population[p1_idx], &population[p2_idx], &child1, &child2, crossover_rate, M);
             
-            mutation(&child1, mutation_rate, mutation_strength, M);
-            mutation(&child2, mutation_rate, mutation_strength, M);
+            mutation(&child1, mutation_rate, mutation_strength, M, &main_seed);
+            mutation(&child2, mutation_rate, mutation_strength, M, &main_seed);
 
             if (offspring_count < pop_size) new_population[offspring_count++] = child1;
             if (offspring_count < pop_size) new_population[offspring_count++] = child2;
@@ -98,7 +97,7 @@ int main(void) {
 
     // Final Evaluation
     for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
-        mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, 1000, M);
+        mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, 1000, M, &main_seed);
     }
     
     int best_idx = 0;

@@ -17,16 +17,18 @@ typedef struct {
     Gaussian gaussians[MAX_GAUSSIANS];
 } Model;
 
-// Function pointer type for the target function
 typedef double (*TargetFunc)(double, double);
 
-// Core GA functions
-double rand_double(double min, double max);
-double rand_normal(void);
+// Added thread-local seed parameter to PRNG functions
+double rand_double(double min, double max, unsigned int* seed);
+double rand_normal(unsigned int* seed);
 double gaussian_eval(double u1, double u2, const double c[2], const double sigma[2]);
-double fitness_function(const Model* model, TargetFunc func, int N, int M);
+
+// Added seed to fitness evaluation
+double fitness_function(const Model* model, TargetFunc func, int N, int M, unsigned int* seed);
+
 void crossover(const Model* parent1, const Model* parent2, Model* child1, Model* child2, double crossover_rate, int M);
-void mutation(Model* individual, double mutation_rate, double mutation_strength, int M);
-int roulette_wheel_selection(const double* fitness_values, int pop_size);
+void mutation(Model* individual, double mutation_rate, double mutation_strength, int M, unsigned int* seed);
+int roulette_wheel_selection(const double* fitness_values, int pop_size, unsigned int* seed);
 
 #endif // GA_MODEL_H

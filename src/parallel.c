@@ -21,7 +21,9 @@ int compare_fitness(const void* a, const void* b) {
 }
 
 int main(void) {
-    srand((unsigned int)time(NULL));
+    // Main thread seed for sequential operations
+    unsigned int main_seed = (unsigned int)time(NULL);
+    srand(main_seed); // Kept as fallback for any remaining standard rand() calls like crossover
 
     // GA Parameters
     double crossover_rate = 0.8;
@@ -38,14 +40,14 @@ int main(void) {
     double* mse_pop = (double*)malloc(pop_size * sizeof(double));
     SortItem* sort_arr = (SortItem*)malloc(pop_size * sizeof(SortItem));
 
-    // Initialize Population
+    // Initialize Population sequentially using the main thread seed
     for (int j = 0; j < pop_size; j++) {
         for (int i = 0; i < M; i++) {
-            population[j].gaussians[i].w = 2.0 * rand_double(0.0, 1.0) - 1.0;
-            population[j].gaussians[i].c[0] = rand_double(U1_MIN, U1_MAX);
-            population[j].gaussians[i].c[1] = rand_double(U2_MIN, U2_MAX);
-            population[j].gaussians[i].sigma[0] = 0.1 + 0.9 * rand_double(0.0, 1.0);
-            population[j].gaussians[i].sigma[1] = 0.1 + 0.9 * rand_double(0.0, 1.0);
+            population[j].gaussians[i].w = 2.0 * rand_double(0.0, 1.0, &main_seed) - 1.0;
+            population[j].gaussians[i].c[0] = rand_double(U1_MIN, U1_MAX, &main_seed);
+            population[j].gaussians[i].c[1] = rand_double(U2_MIN, U2_MAX, &main_seed);
+            population[j].gaussians[i].sigma[0] = 0.1 + 0.9 * rand_double(0.0, 1.0, &main_seed);
+            population[j].gaussians[i].sigma[1] = 0.1 + 0.9 * rand_double(0.0, 1.0, &main_seed);
         }
     }
 
@@ -55,11 +57,20 @@ int main(void) {
     // Evolution Loop
     for (int gen = 1; gen <= gens; gen++) {
         
-        #pragma omp parallel for
-        for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
-            mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, train_set_points, M);
-            sort_arr[pop_idx].index = pop_idx;
-            sort_arr[pop_idx].fitness = mse_pop[pop_idx];
+        // ---------------------------------------------------------
+        // PARALLEL FITNESS EVALUATION
+        // ---------------------------------------------------------
+        #pragma omp parallel 
+        {
+            // Create a unique local seed for each OpenMP thread
+            unsigned int local_seed = (unsigned int)time(NULL) ^ omp_get_thread_num();
+
+            #pragma omp for
+            for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
+                mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, train_set_points, M, &local_seed);
+                sort_arr[pop_idx].index = pop_idx;
+                sort_arr[pop_idx].fitness = mse_pop[pop_idx];
+            }
         }
 
         qsort(sort_arr, pop_size, sizeof(SortItem), compare_fitness);
@@ -76,14 +87,16 @@ int main(void) {
         // Crossover and Mutation
         int offspring_count = elite_size;
         while (offspring_count < pop_size) {
-            int p1_idx = roulette_wheel_selection(mse_pop, pop_size);
-            int p2_idx = roulette_wheel_selection(mse_pop, pop_size);
+            // Pass the main thread seed to the selection process
+            int p1_idx = roulette_wheel_selection(mse_pop, pop_size, &main_seed);
+            int p2_idx = roulette_wheel_selection(mse_pop, pop_size, &main_seed);
 
             Model child1, child2;
             crossover(&population[p1_idx], &population[p2_idx], &child1, &child2, crossover_rate, M);
             
-            mutation(&child1, mutation_rate, mutation_strength, M);
-            mutation(&child2, mutation_rate, mutation_strength, M);
+            // Pass the main thread seed to the mutation process
+            mutation(&child1, mutation_rate, mutation_strength, M, &main_seed);
+            mutation(&child2, mutation_rate, mutation_strength, M, &main_seed);
 
             if (offspring_count < pop_size) new_population[offspring_count++] = child1;
             if (offspring_count < pop_size) new_population[offspring_count++] = child2;
@@ -94,9 +107,17 @@ int main(void) {
         }
     }
 
-    #pragma omp parallel for
-    for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
-        mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, 1000, M);
+    // ---------------------------------------------------------
+    // PARALLEL FINAL EVALUATION
+    // ---------------------------------------------------------
+    #pragma omp parallel 
+    {
+        unsigned int local_seed = (unsigned int)time(NULL) ^ omp_get_thread_num();
+        
+        #pragma omp for
+        for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
+            mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, 1000, M, &local_seed);
+        }
     }
     
     int best_idx = 0;
