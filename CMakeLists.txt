@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(GeneticAlgorithmModel)
+project(GeneticAlgorithmModel C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
@@ -7,13 +7,17 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 # Set optimization flags
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -Wall -Wextra")
 
-# Set the output directory for all executables to a 'build' folder
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/build)
+# Set the executable target directory directly into the current build output directory
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
+# Add source files
 add_executable(ga_model
-    main.c
-    ga_model.c
+    src/main.c
+    src/ga_model.c
 )
 
-# Link math library (required for sin, pow, exp, sqrt)
-target_link_libraries(ga_model m)
+# Target include directory for headers
+target_include_directories(ga_model PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Link math library
+target_link_libraries(ga_model PRIVATE m)
