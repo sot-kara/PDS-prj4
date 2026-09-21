@@ -2,14 +2,14 @@
 #include <stdlib.h>
 #include <math.h>
 #include <time.h>
+#include <omp.h>
 #include "ga_model.h"
 
-// Target function from Project2025.pdf
+// Target function
 double true_function(double u1, double u2) {
     return sin(u1 + u2) * sin(u2 * u2);
 }
 
-// Helper to sort population by fitness
 typedef struct {
     int index;
     double fitness;
@@ -49,8 +49,13 @@ int main(void) {
         }
     }
 
+    // Start OpenMP wall-clock timer
+    double start_time = omp_get_wtime();
+
     // Evolution Loop
     for (int gen = 1; gen <= gens; gen++) {
+        
+        #pragma omp parallel for
         for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
             mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, train_set_points, M);
             sort_arr[pop_idx].index = pop_idx;
@@ -71,11 +76,8 @@ int main(void) {
         // Crossover and Mutation
         int offspring_count = elite_size;
         while (offspring_count < pop_size) {
-            int p1_idx = sort_arr[rand() % pop_size].index; // Fallback to random if not using roulette exclusively
-            int p2_idx = sort_arr[rand() % pop_size].index;
-            
-            p1_idx = roulette_wheel_selection(mse_pop, pop_size);
-            p2_idx = roulette_wheel_selection(mse_pop, pop_size);
+            int p1_idx = roulette_wheel_selection(mse_pop, pop_size);
+            int p2_idx = roulette_wheel_selection(mse_pop, pop_size);
 
             Model child1, child2;
             crossover(&population[p1_idx], &population[p2_idx], &child1, &child2, crossover_rate, M);
@@ -92,7 +94,7 @@ int main(void) {
         }
     }
 
-    // Final Evaluation
+    #pragma omp parallel for
     for (int pop_idx = 0; pop_idx < pop_size; pop_idx++) {
         mse_pop[pop_idx] = fitness_function(&population[pop_idx], true_function, 1000, M);
     }
@@ -107,7 +109,13 @@ int main(void) {
     }
     
     Model best_model = population[best_idx];
+
+    // Stop OpenMP timer
+    double end_time = omp_get_wtime();
+    double elapsed_time = end_time - start_time;
+
     printf("\nFinal Best MSE: %.6f\n", best_mse);
+    printf("Parallel Evolution Time: %.6f seconds\n", elapsed_time);
 
     // Export to CSV
     FILE *f = fopen("model_output.csv", "w");
