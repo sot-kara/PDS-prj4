@@ -30,9 +30,9 @@ int main(void) {
     double mutation_rate = 0.1;
     double mutation_strength = 0.4;
     int gens = 200;
-    int M = 5; 
+    int M = 5; // Number of Gaussians in the model
     int pop_size = 100;
-    int elite_size = 5;
+    int elite_size = 10;
     int train_set_points = 1000;
 
     Model* population = (Model*)malloc(pop_size * sizeof(Model));
@@ -80,6 +80,7 @@ int main(void) {
         }
 
         // Elitism
+        #pragma omp parallel for
         for (int i = 0; i < elite_size; i++) {
             new_population[i] = population[sort_arr[i].index];
         }
@@ -102,6 +103,7 @@ int main(void) {
             if (offspring_count < pop_size) new_population[offspring_count++] = child2;
         }
 
+        #pragma omp parallel for
         for (int i = 0; i < pop_size; i++) {
             population[i] = new_population[i];
         }
@@ -122,6 +124,8 @@ int main(void) {
     
     int best_idx = 0;
     double best_mse = mse_pop[0];
+
+    #pragma omp parallel for
     for (int i = 1; i < pop_size; i++) {
         if (mse_pop[i] < best_mse) {
             best_mse = mse_pop[i];
