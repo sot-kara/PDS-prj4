@@ -1,2 +1,3 @@
 /build
 model_output.csv
+omp_benchmark.csv

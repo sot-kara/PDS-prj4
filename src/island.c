@@ -6,7 +6,7 @@
 #include <omp.h>
 #include "ga_model.h"
 
-#define NUM_ISLANDS 10
+int NUM_ISLANDS = 100;
 #define EPOCH_LENGTH 20
 
 // Target function
@@ -44,7 +44,7 @@ typedef struct {
 } IslandArgs;
 
 // Global array to access neighboring migration buffers
-IslandArgs island_contexts[NUM_ISLANDS];
+IslandArgs *island_contexts;
 
 void* island_worker(void* arg) {
     IslandArgs* ctx = (IslandArgs*)arg;
@@ -96,7 +96,7 @@ void* island_worker(void* arg) {
             }
         }
 
-        // --- MIGRATION PHASE (POSIX Synchronization) ---
+        // --- MIGRATION PHASE ---
         // Evaluate one last time to ensure we are exporting the true best of this epoch
         #pragma omp parallel for
         for (int pop_idx = 0; pop_idx < ctx->pop_size; pop_idx++) {
@@ -106,7 +106,7 @@ void* island_worker(void* arg) {
         }
         qsort(sort_arr, ctx->pop_size, sizeof(SortItem), compare_fitness);
 
-        // Define circular ring topology: Island N sends to Island N+1
+        // Island N sends to Island N+1
         int next_island = (ctx->island_id + 1) % NUM_ISLANDS;
 
         pthread_mutex_lock(&sync_mutex);
@@ -137,10 +137,12 @@ void* island_worker(void* arg) {
     return NULL;
 }
 
-int main(void) {
+int main(int argc, char **argv) {
     int total_gens = 200;
     int M = 5; 
-    int total_pop_size = 100;
+    NUM_ISLANDS = argc > 1 ? atoi(argv[1]) : 100; // Default to 100 islands if not specified
+    island_contexts = (IslandArgs*)malloc(NUM_ISLANDS * sizeof(IslandArgs));
+    int total_pop_size = NUM_ISLANDS * 25; // Each island has 25 individuals
     int island_pop_size = total_pop_size / NUM_ISLANDS;
     int elite_size = 2; // Scaled down since sub-populations are smaller
 
@@ -202,6 +204,8 @@ int main(void) {
         }
         free(island_contexts[i].population);
     }
+
+    free(island_contexts); // free the island contexts array
 
     printf("\nFinal Best MSE (Island Model): %.6f\n", global_best_mse);
     printf("Island Evolution Time: %.6f seconds\n", elapsed_time);
