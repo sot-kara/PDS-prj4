@@ -6,7 +6,7 @@
 #include <omp.h>
 #include "ga_model.h"
 
-int NUM_ISLANDS = 100;
+int NUM_ISLANDS = 4; // Default number of islands, can be overridden by command line argument
 #define EPOCH_LENGTH 20
 
 // Target function
@@ -140,7 +140,7 @@ void* island_worker(void* arg) {
 int main(int argc, char **argv) {
     int total_gens = 200;
     int M = 5; 
-    NUM_ISLANDS = argc > 1 ? atoi(argv[1]) : 100; // Default to 100 islands if not specified
+    NUM_ISLANDS = argc > 1 ? atoi(argv[1]) : 4; // Default to 4 islands if not specified
     island_contexts = (IslandArgs*)malloc(NUM_ISLANDS * sizeof(IslandArgs));
     int total_pop_size = NUM_ISLANDS * 25; // Each island has 25 individuals
     int island_pop_size = total_pop_size / NUM_ISLANDS;
