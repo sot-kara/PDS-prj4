@@ -23,7 +23,7 @@ int compare_fitness(const void* a, const void* b) {
 int main(void) {
     // Main thread seed for sequential operations
     unsigned int main_seed = (unsigned int)time(NULL);
-    srand(main_seed); // Kept as fallback for any remaining standard rand() calls like crossover
+    srand(main_seed); // Kept as fallback for any remaining standard rand() calls
 
     // GA Parameters
     double crossover_rate = 0.8;

@@ -45,8 +45,6 @@ double fitness_function(const Model* model, TargetFunc func, int N, int M, unsig
 void crossover(const Model* parent1, const Model* parent2, Model* child1, Model* child2, double crossover_rate, int M) {
     *child1 = *parent1;
     *child2 = *parent2;
-    // Note: crossover happens sequentially in main loop, we can keep rand() here, 
-    // or pass a main-thread seed. We'll leave it as rand() since it's outside the parallel loop.
     if (((double)rand() / RAND_MAX) < crossover_rate) {
         int crossover_point = 1 + rand() % (M - 1); 
         for (int i = crossover_point; i < M; i++) {
